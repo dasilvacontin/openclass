@@ -4,9 +4,15 @@ const app = express()
 const http = require('http').Server(app)
 const io = require('socket.io')(http)
 const ip = require('ip')
+const mysql = require('mysql')
+const url = require('url')
+
 const port = process.env.PORT || 3000
-const noobdb = require('./noobdb.js')
-const messages = noobdb('db.json', [])
+const { host, auth } = url.parse(process.env.CLEARDB_DATABASE_URL)
+const [user, password] = auth.split(':')
+const database = 'testdb'
+const connection = mysql.createConnection({ host, user, password, database })
+connection.connect()
 
 const _log = console.log
 console.log = function () {
@@ -20,6 +26,8 @@ app.use(express.static('.'))
 app.get('/', function (req, res) {
   res.sendFile(__dirname + '/index.html')
 })
+
+const messages = []
 
 io.on('connection', (socket) => {
   socket.emit('bootstrap', socket.id, messages)
