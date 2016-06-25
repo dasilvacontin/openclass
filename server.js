@@ -10,7 +10,7 @@ const url = require('url')
 const port = process.env.PORT || 3000
 const { host, auth } = url.parse(process.env.CLEARDB_DATABASE_URL)
 const [user, password] = auth.split(':')
-const config = { host, user, password }
+const config = { host, user, password, database: 'ignite' }
 console.log(config)
 const connection = mysql.createConnection(config)
 connection.connect()
