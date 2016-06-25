@@ -52,6 +52,6 @@ io.on('connection', (socket) => {
   })
 })
 
-http.listen(3000, function () {
+http.listen(port, function () {
   console.log(`listening on ${ip.address()}:${port}`)
 })
