@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, user-scalable=0, initial-scale=1">
+
+  <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,700" rel="stylesheet">
+  <link href="http://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css" rel="stylesheet">
+  <style>
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Roboto', sans-serif;
+    }
+
+    h1, h2, h3, h4, p, input {
+      font-size: 14px;
+      line-height: 20px;
+      color: #333333;
+      padding: 0;
+      margin: 0;
+    }
+
+    b { font-weight: 700 }
+
+    html, body {
+      height: 100%;
+      max-height: 100%;
+      background: #9eaac3;
+    }
+
+    .wrapper {
+      display: flex;
+      flex-direction: column;
+
+      width: 100%;
+      max-width: 500px;
+      height: 100%;
+      margin: 0 auto;
+      background-color: #F2F1F1;
+      box-shadow: 0 0 10px 0 rgba(0,0,0,0.1);
+    }
+
+    .nav-bar {
+      box-sizing: border-box;
+      width: 100%;
+      height: 110px;
+      min-height: 110px;
+      padding-top: 20px;
+      background-color: #3E4373;
+      box-shadow: 0px 2px 10px 0px rgba(0,0,0,0.1);
+    }
+
+    .chat-container {
+      height: 100%;
+      overflow-y: scroll;
+    }
+
+    .chat-message {
+      display: flex;
+      align-items: center;
+      vertical-align: middle;
+      transition: background-color 0.2s;
+    }
+    .chat-message.hasUpvotes {
+      background-color: rgba(46, 143, 255, 0.1);
+    }
+
+    .chat-message p {
+      box-sizing: border-box;
+      vertical-align: middle;
+      width: 100%;
+      padding: 5px 10px;
+    }
+    .chat-message img { vertical-align: middle }
+    .chat-message .upvotes {
+      display: inline-block;
+      width: auto;
+      min-width: 60px;
+      height: 100%;
+      white-space: nowrap;
+      font-size: 20px;
+      font-weight: 300;
+      text-align: right;
+      color: #CCCCCC;
+      transition: color 0.2s;
+    }
+    .chat-message.hasUpvotes .upvotes { color: #333333 }
+    .chat-message.userUpvoted.userUpvoted .upvotes { color: #2E8FFF }
+
+    .input-bar {
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      height: 60px;
+      min-height: 60px;
+      box-shadow: 0px -2px 10px 0px rgba(0,0,0,0.1);
+    }
+    .input-bar input {
+      box-sizing: border-box;
+      display: inline-block;
+      vertical-align: middle;
+      max-width: 100%;
+      width: 100%;
+      height: 60px;
+      padding: 10px;
+      border: 0;
+      outline: none;
+    }
+
+    .button {
+      box-sizing: border-box;
+      display: inline-block;
+      width: 60px;
+      min-width: 60px;
+      height: 60px;
+
+      border: 0;
+      outline: 0;
+    }
+    .button i { font-size: 28px; color: white }
+
+    .blue { color: #2E8FFF }
+    .bg-blue { background-color: #2E8FFF }
+    .bg-light-blue { background-color: #B0D5FF }
+
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="nav-bar">
+      <i class="icon ion-ios-arrow-back"></i>
+    </div>
+
+    <div class="chat-container"></div>
+
+    <div class="input-bar">
+      <input placeholder="Write your thoughts..." />
+
+      <button class="button bg-light-blue" onclick="sendRepeatBubble()">
+        <img src="images/repeat-bubble@2x.png" width="32" height="33">
+      </button>
+
+      <button class="button bg-blue" onclick="sendMessage()">
+        <i class="icon ion-android-send" style="padding-left: 5px"></i>
+      </button>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io()
+    let localId = null
+    var container = document.getElementsByClassName('chat-container')[0]
+    var message = document.getElementsByClassName('chat-message')[0]
+
+    function upvoteMessage (id, userId) {
+      const isUser = (userId == null || userId === localId)
+      const message = messages[id]
+      if (!message) return
+
+      if (!message.userUpvoted || !isUser) {
+        message.upvotes++
+        if (isUser) {
+          message.userUpvoted = true
+          socket.emit('message:upvote', message.id)
+        }
+        renderNodeForMessage(message)
+      }
+    }
+
+    // short class
+    function sc (rules) {
+      let classNames = ''
+      for (let className in rules) {
+        const condition = rules[className]
+        if (condition) classNames += ` ${className}`
+      }
+      return classNames
+    }
+
+    function renderNodeForMessage (message) {
+      const { id, username, content, upvotes, userUpvoted } = message
+      const isTeacher = username === 'Teacher'
+      const hasUpvotes = upvotes > 1
+      const messageClassNames = sc({
+        hasUpvotes: hasUpvotes,
+        userUpvoted: userUpvoted
+      })
+      const parsedContent = content.replace(/:repeat-bubble:/g,
+        '<img src="images/repeat-bubble@2x.png" width="21" height="22">')
+
+      const node = message.node || document.createElement('div')
+      node.className = `chat-message ${messageClassNames}`
+      node.innerHTML = `<p><b class="${sc({blue: isTeacher})}">` +
+        `${username}:</b> ${parsedContent}</p>` +
+        `<p class="upvotes" onclick="upvoteMessage(${id})">` +
+        `<i class='icon ion-ios-arrow-up'></i>&nbsp;${upvotes}</p>`
+
+      message.node = node
+      return node
+    }
+
+    let messages = null
+
+    function scrollChatToBottom () {
+      container.scrollTop = container.scrollHeight
+    }
+
+    function sendMessage () {
+      const value = input.value.trim()
+      input.value = ""
+      if (value.length === 0) return
+      socket.emit('message:create', value)
+    }
+
+    function sendRepeatBubble () {
+      socket.emit('message:create', ':repeat-bubble:')
+    }
+
+    const input = document.getElementsByTagName('input')[0]
+    const ENTER = 13
+    document.addEventListener('keydown', (e) => {
+      if (e.keyCode === ENTER) sendMessage()
+    })
+    scrollChatToBottom()
+
+    socket.on('bootstrap', (userId, allMessages) => {
+      console.log(userId, allMessages)
+      localId = userId
+      messages = allMessages
+
+      container.innerHTML = ''
+      for (let message of messages) {
+        const node = renderNodeForMessage(message)
+        container.appendChild(node)
+      }
+      scrollChatToBottom()
+    })
+
+    socket.on('message:create', (message) => {
+      messages[message.id] = message
+      message.userUpvoted = false
+      const node = renderNodeForMessage(message)
+      container.appendChild(node)
+      scrollChatToBottom()
+    })
+
+    socket.on('message:upvote', upvoteMessage)
+
+  </script>
+</body>
+</html>
