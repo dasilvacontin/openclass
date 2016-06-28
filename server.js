@@ -19,10 +19,12 @@ mysql.createConnection(config)
   conn = connection
   console.log('successfully connected to DB')
   conn.query(
-    'CREATE TABLE IF NOT EXISTS messages' +
+    'CREATE TABLE IF NOT EXISTS messages (' +
     'id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,' +
-    'username VARCHAR(16) NOT NULL,'
-    'content VARCHAR(140) NOT NULL,'
+    'created TIMESTAMP DEFAULT NOW(),' +
+    'username VARCHAR(16) NOT NULL,' +
+    'content VARCHAR(140) NOT NULL,' +
+    'upvotes INT(70) NOT NULL DEFAULT 0)'
   )
 })
 .catch((err) => {
@@ -45,8 +47,50 @@ app.get('/', function (req, res) {
 
 const messages = []
 
+function getMessages(callback) {
+  conn.query(
+    'SELECT * ' +
+    'FROM messages',
+    []
+  ).then((messages) => {
+    callback(messages)
+  })
+  .catch((err) => {
+    console.log(err)
+  })
+}
+
+function saveMessage(username, content) {
+  conn.query(
+    'INSERT INTO messages (username, content) VALUES (?,?)',
+    [username, content]
+  ).then((result) => {
+    console.log(result)
+  })
+  .catch((err) => {
+    console.log(err)
+  })
+}
+
+function upvoteMessage(messageId) {
+  console.log('upvoting',messageId)
+  conn.query(
+    'UPDATE messages ' +
+    'SET upvotes = upvotes + 1 ' +
+    'WHERE id = ?',
+    [messageId]
+  ).then((result) => {
+    console.log(result)
+  })
+  .catch((err) => {
+    console.log(err)
+  })
+}
+
 io.on('connection', (socket) => {
-  socket.emit('bootstrap', socket.id, messages)
+  getMessages(function (messages) {
+    socket.emit('bootstrap', socket.id, messages)
+  })
 
   socket.on('message:create', (value) => {
     console.log('message:create', socket.id, value)
@@ -60,7 +104,7 @@ io.on('connection', (socket) => {
       content: value,
       upvotes: 0
     }
-    messages.push(message)
+    saveMessage('Anon', value)
 
     io.sockets.emit('message:create', message)
   })
@@ -68,10 +112,8 @@ io.on('connection', (socket) => {
   socket.on('message:upvote', (messageId) => {
     console.log('message:upvote', socket.id, messageId)
     console.log(socket.conn.remoteAddress)
-    const message = messages[messageId]
-    if (!message) return console.log('upvoted unexisting message')
+    upvoteMessage(messageId)
 
-    message.upvotes++
     io.sockets.emit('message:upvote', messageId, socket.id)
   })
 })
