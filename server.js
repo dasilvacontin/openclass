@@ -4,7 +4,7 @@ const app = express()
 const http = require('http').Server(app)
 const io = require('socket.io')(http)
 const ip = require('ip')
-const mysql = require('mysql')
+const mysql = require('promise-mysql')
 const url = require('url')
 
 const port = process.env.PORT || 3000
@@ -12,9 +12,23 @@ const { host, auth, pathname } = url.parse(process.env.CLEARDB_DATABASE_URL)
 const [user, password] = auth.split(':')
 const database = pathname.slice(1)
 const config = { host, user, password, database }
-console.log(config)
-const connection = mysql.createConnection(config)
-connection.connect()
+
+let conn = null
+mysql.createConnection(config)
+.then((connection) => {
+  conn = connection
+  console.log('successfully connected to DB')
+  conn.query(
+    'CREATE TABLE IF NOT EXISTS messages' +
+    'id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,' +
+    'username VARCHAR(16) NOT NULL,'
+    'content VARCHAR(140) NOT NULL,'
+  )
+})
+.catch((err) => {
+  console.log(err)
+  process.exit()
+})
 
 const _log = console.log
 console.log = function () {
