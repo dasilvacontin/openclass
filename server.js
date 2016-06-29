@@ -32,20 +32,10 @@ mysql.createConnection(config)
   process.exit()
 })
 
-const _log = console.log
-console.log = function () {
-  const d = new Date()
-  const args = Array.from(arguments)
-  const timestamp = '[' + d.toLocaleString().split(' ').slice(0, 2).join(' ') + ']'
-  _log.apply(console, [timestamp].concat(args))
-}
-
 app.use(express.static('.'))
 app.get('/', function (req, res) {
   res.sendFile(__dirname + '/index.html')
 })
-
-const messages = []
 
 function getMessages(callback) {
   conn.query(
@@ -65,7 +55,13 @@ function saveMessage(username, content) {
     'INSERT INTO messages (username, content) VALUES (?,?)',
     [username, content]
   ).then((result) => {
-    console.log(result)
+    const message = {
+      id: result.insertId,
+      username: username,
+      content: content,
+      upvotes: 0
+    }
+    io.sockets.emit('message:create', message)
   })
   .catch((err) => {
     console.log(err)
@@ -97,16 +93,7 @@ io.on('connection', (socket) => {
     value = String(value).trim()
     if (value.length === 0) return
 
-    const message = {
-      id: messages.length,
-      timestamp: Date.now(),
-      username: 'Anon',
-      content: value,
-      upvotes: 0
-    }
     saveMessage('Anon', value)
-
-    io.sockets.emit('message:create', message)
   })
 
   socket.on('message:upvote', (messageId) => {
