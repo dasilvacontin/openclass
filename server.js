@@ -37,72 +37,62 @@ app.get('/', function (req, res) {
   res.sendFile(__dirname + '/index.html')
 })
 
-function getMessages(callback) {
+function getMessages (callback) {
   conn.query(
     'SELECT * ' +
     'FROM messages',
     []
-  ).then((messages) => {
-    callback(messages)
-  })
+  ).then(callback)
   .catch((err) => {
     console.log(err)
   })
 }
 
-function saveMessage(username, content) {
+function createMessage (content) {
+  const socket = this
+  const username = 'Anon'
+
+  content = String(content).trim()
+  if (content.length === 0) return
+
   conn.query(
     'INSERT INTO messages (username, content) VALUES (?,?)',
     [username, content]
   ).then((result) => {
     const message = {
       id: result.insertId,
-      username: username,
-      content: content,
+      username,
+      content,
       upvotes: 0
     }
+
+    console.log('message:create', socket.id, content)
     io.sockets.emit('message:create', message)
   })
-  .catch((err) => {
-    console.log(err)
-  })
+  .catch((err) => { console.log(err) })
 }
 
-function upvoteMessage(messageId) {
-  console.log('upvoting',messageId)
+function upvoteMessage (messageId) {
+  const socket = this
+
   conn.query(
     'UPDATE messages ' +
     'SET upvotes = upvotes + 1 ' +
     'WHERE id = ?',
     [messageId]
   ).then((result) => {
-    console.log(result)
+    console.log('message:upvote', socket.id, messageId)
+    io.sockets.emit('message:upvote', socket.id, messageId)
   })
-  .catch((err) => {
-    console.log(err)
-  })
+  .catch((err) => { console.log(err) })
 }
 
 io.on('connection', (socket) => {
   getMessages(function (messages) {
     socket.emit('bootstrap', socket.id, messages)
   })
-
-  socket.on('message:create', (value) => {
-    console.log('message:create', socket.id, value)
-    value = String(value).trim()
-    if (value.length === 0) return
-
-    saveMessage('Anon', value)
-  })
-
-  socket.on('message:upvote', (messageId) => {
-    console.log('message:upvote', socket.id, messageId)
-    console.log(socket.conn.remoteAddress)
-    upvoteMessage(messageId)
-
-    io.sockets.emit('message:upvote', messageId, socket.id)
-  })
+  socket.on('message:create', createMessage)
+  socket.on('message:upvote', upvoteMessage)
 })
 
 http.listen(port, function () {
