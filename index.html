@@ -88,6 +88,8 @@
     .chat-message.hasUpvotes .upvotes { color: #333333 }
     .chat-message.userUpvoted.userUpvoted .upvotes { color: #2E8FFF }
 
+    .upvotes { cursor: pointer }
+
     .input-bar {
       display: flex;
       flex-direction: row;
@@ -114,6 +116,7 @@
       width: 60px;
       min-width: 60px;
       height: 60px;
+      cursor: pointer;
 
       border: 0;
       outline: 0;
@@ -152,13 +155,13 @@
     const socket = io()
     let localId = null
     var container = document.getElementsByClassName('chat-container')[0]
-    var message = document.getElementsByClassName('chat-message')[0]
+    let messages = []
 
-    function upvoteMessage (id, userId) {
-      const isUser = (userId == null || userId === localId)
-      const message = messages[id]
+    function upvoteMessage (userId, messageId) {
+      const message = messages[messageId]
       if (!message) return
 
+      const isUser = (userId == null || userId === localId)
       if (!message.userUpvoted || !isUser) {
         message.upvotes++
         if (isUser) {
@@ -194,14 +197,12 @@
       node.className = `chat-message ${messageClassNames}`
       node.innerHTML = `<p><b class="${sc({blue: isTeacher})}">` +
         `${username}:</b> ${parsedContent}</p>` +
-        `<p class="upvotes" onclick="upvoteMessage(${id})">` +
+        `<p class="upvotes" onclick="upvoteMessage(null, ${id})">` +
         `<i class='icon ion-ios-arrow-up'></i>&nbsp;${upvotes}</p>`
 
       message.node = node
       return node
     }
-
-    let messages = null
 
     function scrollChatToBottom () {
       container.scrollTop = container.scrollHeight
@@ -228,10 +229,12 @@
     socket.on('bootstrap', (userId, allMessages) => {
       console.log(userId, allMessages)
       localId = userId
-      messages = allMessages
+      allMessages.forEach(message => {
+        messages[message.id] = message
+      })
 
       container.innerHTML = ''
-      for (let message of messages) {
+      for (let message of allMessages) {
         const node = renderNodeForMessage(message)
         container.appendChild(node)
       }

@@ -19,10 +19,12 @@ mysql.createConnection(config)
   conn = connection
   console.log('successfully connected to DB')
   conn.query(
-    'CREATE TABLE IF NOT EXISTS messages' +
+    'CREATE TABLE IF NOT EXISTS messages (' +
     'id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,' +
-    'username VARCHAR(16) NOT NULL,'
-    'content VARCHAR(140) NOT NULL,'
+    'created TIMESTAMP DEFAULT NOW(),' +
+    'username VARCHAR(16) NOT NULL,' +
+    'content VARCHAR(140) NOT NULL,' +
+    'upvotes INT(70) NOT NULL DEFAULT 0)'
   )
 })
 .catch((err) => {
@@ -30,50 +32,67 @@ mysql.createConnection(config)
   process.exit()
 })
 
-const _log = console.log
-console.log = function () {
-  const d = new Date()
-  const args = Array.from(arguments)
-  const timestamp = '[' + d.toLocaleString().split(' ').slice(0, 2).join(' ') + ']'
-  _log.apply(console, [timestamp].concat(args))
-}
-
 app.use(express.static('.'))
 app.get('/', function (req, res) {
   res.sendFile(__dirname + '/index.html')
 })
 
-const messages = []
+function getMessages (callback) {
+  conn.query(
+    'SELECT * ' +
+    'FROM messages',
+    []
+  ).then(callback)
+  .catch((err) => {
+    console.log(err)
+  })
+}
 
-io.on('connection', (socket) => {
-  socket.emit('bootstrap', socket.id, messages)
+function createMessage (content) {
+  const socket = this
+  const username = 'Anon'
 
-  socket.on('message:create', (value) => {
-    console.log('message:create', socket.id, value)
-    value = String(value).trim()
-    if (value.length === 0) return
+  content = String(content).trim()
+  if (content.length === 0) return
 
+  conn.query(
+    'INSERT INTO messages (username, content) VALUES (?,?)',
+    [username, content]
+  ).then((result) => {
     const message = {
-      id: messages.length,
-      timestamp: Date.now(),
-      username: 'Anon',
-      content: value,
+      id: result.insertId,
+      username,
+      content,
       upvotes: 0
     }
-    messages.push(message)
 
+    console.log('message:create', socket.id, content)
     io.sockets.emit('message:create', message)
   })
+  .catch((err) => { console.log(err) })
+}
 
-  socket.on('message:upvote', (messageId) => {
+function upvoteMessage (messageId) {
+  const socket = this
+
+  conn.query(
+    'UPDATE messages ' +
+    'SET upvotes = upvotes + 1 ' +
+    'WHERE id = ?',
+    [messageId]
+  ).then((result) => {
     console.log('message:upvote', socket.id, messageId)
-    console.log(socket.conn.remoteAddress)
-    const message = messages[messageId]
-    if (!message) return console.log('upvoted unexisting message')
-
-    message.upvotes++
-    io.sockets.emit('message:upvote', messageId, socket.id)
+    io.sockets.emit('message:upvote', socket.id, messageId)
   })
+  .catch((err) => { console.log(err) })
+}
+
+io.on('connection', (socket) => {
+  getMessages(function (messages) {
+    socket.emit('bootstrap', socket.id, messages)
+  })
+  socket.on('message:create', createMessage)
+  socket.on('message:upvote', upvoteMessage)
 })
 
 http.listen(port, function () {
