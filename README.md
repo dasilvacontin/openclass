@@ -10,7 +10,7 @@ Experiment to test the following hypothesis:
 - anonymously
 - asynchronously
 
-I will be testing this experiment during the 5th edition of my "Multiplayer Online Games with Node.js" course at Polytechnic University of Catalonia, which will take place in February
+I will be testing this experiment during the 5th edition of my "Multiplayer Online Games with Node.js" course at Polytechnic University of Catalonia, which will take place in February 6th-10th 2017.
 
 This prototype is __still under development__.
 
